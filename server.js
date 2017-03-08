@@ -1,18 +1,20 @@
 /*=====================================================
-Our Setup - 
-we are going to send requests to another API 
+Our Setup -
+we are going to send requests to another API
 so we need a bit more than usual!
 =======================================================*/
-var bodyParser = require('body-parser')
-var express = require('express')
-var app = express()
+var bodyParser = require('body-parser');
+var express = require('express');
+var app = express();
 
-var request = require('request')
-var mongoose = require('mongoose')
-var Book = require("./models/BookModel")
-var Person = require("./models/PersonModel")
+var request = require('request');
+var mongoose = require('mongoose');
+var Book = require("./models/BookModel");
+var Person = require("./models/PersonModel");
 
-mongoose.connect("mongodb://localhost/mongoose-practice")
+mongoose.connect('mongodb://localhost/mongoose-practice', function(err){
+if (err) throw err;
+});
 
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
@@ -26,14 +28,20 @@ var url = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
 
 for (var i = 0; i < isbns.length; i++) {
   var apiURL = url + isbns[i];
+  console.log(apiURL);
   /*=====================================================
   the first time you run your code, uncomment the function below.
   for subsequent runs, re-comment it so that it runs only once!
-  that said, there is a fail-safe to avoid duplicates below  
+  that said, there is a fail-safe to avoid duplicates below
   =======================================================*/
   loadFromAPI(apiURL)
 }
 console.log("done");
+
+
+
+
+
 
 function loadFromAPI(apiURL) {
 
@@ -56,6 +64,7 @@ function loadFromAPI(apiURL) {
       Book.findOne({ title: book.title }, function(err, foundBook) {
         if (!foundBook) {
           book.save()
+          console.log("Book saved: "+book.title);
         }
       })
     }
@@ -77,10 +86,10 @@ var getHeight = function() {
   return getRandIntBetween(120, 230)
 }
 var getSalary = function() {
-  return getRandIntBetween(20000, 50000)
+  return getRandIntBetween(20000, 150000)
 }
 var getNumKids = function() {
-  return Math.floor(Math.random() * 3)
+  return Math.floor(Math.random() * 6)
 }
 
 var getRandIntBetween = function(min, max) {
@@ -90,12 +99,14 @@ var getRandIntBetween = function(min, max) {
 var getKids = function(numKids) {
   var kids = [];
   for (var i = 0; i < numKids; i++) {
-    kids.push({
+    var tempKid = {
       hair: getColor(),
       eyes: getColor(),
       weight: getWeight(),
       height: getHeight(),
-    })
+    };
+    console.log(tempKid);
+    kids.push(tempKid)
   }
   return kids;
 }
@@ -103,7 +114,7 @@ var getKids = function(numKids) {
 
 /*=====================================================
 the below code always makes sure
-you don't have over 100 people and 
+you don't have over 100 people and
 adds new people and their kids until you do have 100
 
 try to understand how this code works
@@ -137,30 +148,136 @@ Start the server:
 app.listen(3000, function() {
   console.log("Server up and running on port 3000")
 })
+var nPeople;
+
+Person.find({},{}, function(err,data) { nPeople= data.length});
 
 
 /*=====================================================
-Exercises - now that your databases are full 
+Exercises - now that your databases are full
 and your server is running do the following:
 =======================================================*/
 
 /*Books
 ----------------------*/
-//1. Find books with fewer than 500 but more than 200 pages
+/// Todo 1 - Find books with fewer than 500 but more than 200 pages
+Book.find({pages:{$gt :200, $lt:500}}, function(err,data){
+console.log("\n\n1.Find books with fewer than 500 but more than 200 pages:\n");
+for (var i=0; i<data.length; i++) {
 
-//2. Find books whose rating is less than 5, and sort by the author's name
+  console.log("Title: "+data[i].title+" has "+ data[i].pages+ " pages");
+}
 
-//3. Find all the Fiction books, skip the first 2, and display only 3 of them 
+});
 
+/// Todo 2 - Find books whose rating is less than 5, and sort by the author's name
+
+Book.find({rating:{$lt :5}},{},{sort:{author:1}}, function(err,data){
+console.log("\n\n2.Find books whose rating is less than 5, and sort by the author's name:\n");
+    for (var i=0; i<data.length; i++) {
+    console.log("Author name: "+data[i].author+" , has a rating of "+data[i].rating+" (less than 5)");
+  };
+});
+
+/// Todo 3 - Find all the Fiction books, skip the first 2, and display only 3 of them
+
+Book.find({genres:"Fiction"},{},{skip:2,limit:3}, function(err,data) {
+console.log("\n\n3. Find all the Fiction books, skip the first 2, and display only 3 of them:");
+
+for (var i=0; i<data.length; i++) {
+console.log("Title: "+data[i].title+", Genres: "+data[i].genres+" , skipped 2 and limit to 3");
+};
+
+});
+//
+//
+
+
+// Person.find( function(err.data){
+//
+//   console.log(data.length+" found in the database");
+// });
 
 /*People
 ----------------------*/
 //1. Find all the people who are tall (>180) AND rich (>30000)
 
+Person.find({height:{$gt:180},salary:{$gt:30000}},{}, function(err,data){
+
+console.log("\n\nPeople - 1. Find all the people who are tall (>180) AND rich (>30000):\n");
+console.log("Found: "+data.length+" people that match the criteria out of "+nPeople);
+
+} )
+
+
 //2. Find all the people who are tall (>180) OR rich (>30000)
+
+
+
+Person.find({$or: [{heigth: {$gt: 180}}, {salary: {$gt:30000}}]},{}, function(err,data){
+
+  console.log("\n\nPeople - 2. Find all the people who are tall (>180) OR rich (>30000):\n");
+  console.log("Found: "+data.length+" people that match the criteria");
+
+});
+// )
 
 //3. Find all the people who have grey hair or eyes, and are skinny (<70)
 
+
+Person.find().and([
+		{ $or: [{hair:"grey"}, {eyes:"grey"}] },
+		{	weight:{"$lt": 70}	}
+	]).exec(function(err,data){
+// ]},{}, function(err,data) {
+
+  console.log("\n\nPeople - 3. Find all the people who have grey hair or eyes, and are skinny (<70):\n");
+
+
+console.log(data.length);
+
+});
+
+
+
+// db.people.find(
+// {$and:[
+// {weight:{$lt:70}},
+// {$or: [{hair:"grey"}, {eyes:"grey"}]}
+// ]}
+// )
+
 //4. Find people who have at least 1 kid with grey hair
+Person.find({kids:{$elemMatch:{hair:"grey"}}}).exec(function(err,people){
+
+	//this is just to show you that this works
+	for(p in people){
+		var person = people[p];
+		console.log("Person", p,"has kids:\n",person.kids);
+	}
+})
+
+// db.people.find({kids:{$elemMatch: { hair:"grey"}}})
+
+
 
 //5. Find all the people who have at least one overweight kid, and are overweight themselves (>100)
+
+Person.find().and([
+		{weight: {"$gt":100}},
+		{kids:{$elemMatch:{weight: {"$gt":100}}}}
+	]).exec(function(err, people){
+		//this is just to show you that this works
+		for(p in people){
+			var person = people[p];
+			console.log("\nPerson", p,"has weight", person.weight," and kids:\n",person.kids);
+		}
+	});
+
+// db.people.find(
+// {$and:[
+//
+// {weight:{$gt:100}},{kids:{$elemMatch: { weight:{$gt:100}}}}
+// ]
+// }
+// )
